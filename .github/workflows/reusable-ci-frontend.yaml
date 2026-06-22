@@ -1,0 +1,446 @@
+name: Reusable Frontend CI
+
+on:
+  workflow_call:
+    inputs:
+      trigger_event:
+        description: Event name from the caller, normally github.event_name.
+        required: true
+        type: string
+      source_sha:
+        description: Commit SHA to build, normally the PR head SHA or github.sha.
+        required: true
+        type: string
+      service_name:
+        description: Human-readable service name used in logs and commits.
+        required: false
+        default: "frontend-service"
+        type: string
+      image_name:
+        description: ACR repository name for the frontend image.
+        required: false
+        default: "frontend"
+        type: string
+      helm_service_key:
+        description: Frontend key below services in the Helm values file.
+        required: false
+        default: "frontend"
+        type: string
+      working_directory:
+        required: false
+        default: "."
+        type: string
+      requirements_file:
+        required: false
+        default: "requirements.txt"
+        type: string
+      docker_context:
+        required: false
+        default: "."
+        type: string
+      dockerfile_path:
+        required: false
+        default: "./Dockerfile"
+        type: string
+      python_version:
+        required: false
+        default: "3.10"
+        type: string
+      install_command:
+        required: false
+        default: "python -m pip install -r requirements.txt"
+        type: string
+      lint_command:
+        required: false
+        default: "ruff check app.py"
+        type: string
+      test_command:
+        required: false
+        default: ""
+        type: string
+      enforce_security:
+        description: Fail CI when Python security scans find issues.
+        required: false
+        default: false
+        type: boolean
+      sonar_project_key:
+        description: Leave empty to skip SonarQube Cloud analysis.
+        required: false
+        default: ""
+        type: string
+      sonar_organization:
+        required: false
+        default: ""
+        type: string
+      snyk_severity_threshold:
+        required: false
+        default: "high"
+        type: string
+      snyk_organization:
+        required: false
+        default: ""
+        type: string
+      infra_repository:
+        required: false
+        default: "CodeReviewer-org/platform-deployment"
+        type: string
+      dev_infra_ref:
+        required: false
+        default: "test"
+        type: string
+      dev_values_path:
+        required: false
+        default: "helm/values-dev.yaml"
+        type: string
+    secrets:
+      ACR_LOGIN_SERVER:
+        required: true
+      ACR_USERNAME:
+        required: true
+      ACR_PASSWORD:
+        required: true
+      INFRA_REPO_TOKEN:
+        required: true
+      SONAR_TOKEN:
+        required: true
+      SNYK_TOKEN:
+        required: true
+      EMAIL_USERNAME:
+        required: true
+      EMAIL_PASSWORD:
+        required: true
+    outputs:
+      image_repository:
+        description: ACR frontend repository built by this workflow.
+        value: ${{ jobs.build-image.outputs.image_repository }}
+      image_tag:
+        description: Immutable source SHA used as the frontend image tag.
+        value: ${{ jobs.build-image.outputs.image_tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  python-quality:
+    name: Python Quality and Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout service source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+          cache-dependency-path: ${{ inputs.working_directory }}/${{ inputs.requirements_file }}
+
+      - name: Install application and CI dependencies
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          python -m pip install --upgrade pip
+          ${{ inputs.install_command }}
+          python -m pip install ruff pytest pytest-cov pip-audit bandit
+
+      - name: Compile Python sources
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: python -m compileall -q .
+
+      - name: Lint
+        if: ${{ inputs.lint_command != '' }}
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.lint_command }}
+
+      - name: Test
+        if: ${{ inputs.test_command != '' }}
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          set +e
+          ${{ inputs.test_command }}
+          test_exit_code=$?
+          set -e
+
+          if [[ "${test_exit_code}" -eq 5 ]]; then
+            echo "No tests were collected; continuing without a test failure."
+            exit 0
+          fi
+
+          exit "${test_exit_code}"
+
+      - name: Audit Python dependencies
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          ENFORCE_SECURITY: ${{ inputs.enforce_security }}
+          REQUIREMENTS_FILE: ${{ inputs.requirements_file }}
+        run: |
+          if [[ "${ENFORCE_SECURITY}" == "true" ]]; then
+            pip-audit --requirement "${REQUIREMENTS_FILE}"
+          else
+            pip-audit --requirement "${REQUIREMENTS_FILE}" || true
+          fi
+
+      - name: Scan Python source with Bandit
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          ENFORCE_SECURITY: ${{ inputs.enforce_security }}
+        run: |
+          if [[ "${ENFORCE_SECURITY}" == "true" ]]; then
+            bandit --recursive . --exclude ./tests
+          else
+            bandit --recursive . --exclude ./tests || true
+          fi
+
+      - name: Install Snyk CLI
+        shell: bash
+        run: npm install --global snyk
+
+      - name: Scan Python dependencies with Snyk
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_ORGANIZATION: ${{ inputs.snyk_organization }}
+          SNYK_SEVERITY_THRESHOLD: ${{ inputs.snyk_severity_threshold }}
+          REQUIREMENTS_FILE: ${{ inputs.requirements_file }}
+          ENFORCE_SECURITY: ${{ inputs.enforce_security }}
+        run: |
+          args=(
+            --file="${REQUIREMENTS_FILE}"
+            --package-manager=pip
+            --command=python3
+            --severity-threshold="${SNYK_SEVERITY_THRESHOLD}"
+          )
+
+          if [[ -n "${SNYK_ORGANIZATION}" ]]; then
+            args+=(--org="${SNYK_ORGANIZATION}")
+          fi
+
+          if [[ "${ENFORCE_SECURITY}" == "true" ]]; then
+            snyk test "${args[@]}"
+          else
+            snyk test "${args[@]}" || true
+          fi
+
+      - name: Upload dependency snapshot to Snyk
+        if: ${{ inputs.trigger_event == 'push' }}
+        continue-on-error: true
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_ORGANIZATION: ${{ inputs.snyk_organization }}
+          REQUIREMENTS_FILE: ${{ inputs.requirements_file }}
+        run: |
+          args=(--file="${REQUIREMENTS_FILE}" --package-manager=pip --command=python3)
+          if [[ -n "${SNYK_ORGANIZATION}" ]]; then
+            args+=(--org="${SNYK_ORGANIZATION}")
+          fi
+          snyk monitor "${args[@]}"
+
+      - name: SonarQube Cloud analysis
+        if: ${{ inputs.sonar_project_key != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ${{ inputs.working_directory }}
+          args: >
+            "-Dsonar.projectKey=${{ inputs.sonar_project_key }}"
+            "-Dsonar.organization=${{ inputs.sonar_organization }}"
+            "-Dsonar.python.version=${{ inputs.python_version }}"
+
+  build-image:
+    name: Build and Push Image
+    needs: python-quality
+    runs-on: ubuntu-latest
+    outputs:
+      image_repository: ${{ steps.metadata.outputs.image_repository }}
+      image_tag: ${{ steps.metadata.outputs.image_tag }}
+    steps:
+      - name: Checkout service source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Prepare image metadata
+        id: metadata
+        shell: bash
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          repository="${ACR_LOGIN_SERVER}/${IMAGE_NAME}"
+          echo "image_repository=${repository}" >> "${GITHUB_OUTPUT}"
+          echo "image_tag=${SOURCE_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.docker_context }}
+          file: ${{ inputs.dockerfile_path }}
+          load: true
+          push: false
+          tags: ${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push immutable image
+        if: ${{ inputs.trigger_event == 'push' }}
+        shell: bash
+        run: docker push "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.image_tag }}"
+
+  update-dev-gitops:
+    name: Update Dev GitOps Values
+    needs: build-image
+    if: ${{ inputs.trigger_event == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.infra_repository }}
+          ref: ${{ inputs.dev_infra_ref }}
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra-repo
+          fetch-depth: 0
+
+      - name: Install yq
+        shell: bash
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Update and push dev values
+        shell: bash
+        working-directory: infra-repo
+        env:
+          INFRA_REF: ${{ inputs.dev_infra_ref }}
+          VALUES_PATH: ${{ inputs.dev_values_path }}
+          HELM_SERVICE_KEY: ${{ inputs.helm_service_key }}
+          IMAGE_NAMESPACE: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          IMAGE_TAG: ${{ needs.build-image.outputs.image_tag }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${INFRA_REF}"
+            git switch --detach "origin/${INFRA_REF}"
+
+            yq -e '.services[strenv(HELM_SERVICE_KEY)]' "${VALUES_PATH}" >/dev/null
+            yq -i '
+              .image.registry = strenv(IMAGE_NAMESPACE) |
+              .services[strenv(HELM_SERVICE_KEY)].image = strenv(IMAGE_NAME) |
+              .services[strenv(HELM_SERVICE_KEY)].tag = strenv(IMAGE_TAG)
+            ' "${VALUES_PATH}"
+
+            if git diff --quiet -- "${VALUES_PATH}"; then
+              echo "Dev values already reference ${IMAGE_NAME}:${IMAGE_TAG}."
+              exit 0
+            fi
+
+            git add "${VALUES_PATH}"
+            git commit -m "ci: update ${SERVICE_NAME} dev image to ${IMAGE_TAG} [skip ci]"
+
+            if git push origin "HEAD:${INFRA_REF}"; then
+              exit 0
+            fi
+
+            echo "Concurrent GitOps update detected; retrying (${attempt}/5)."
+            sleep $((attempt * 3))
+          done
+
+          echo "Unable to update ${INFRA_REF} after five attempts."
+          exit 1
+
+      - name: Write deployment summary
+        shell: bash
+        run: |
+          {
+            echo "### Dev GitOps update"
+            echo "- Service: ${{ inputs.service_name }}"
+            echo "- Image: ${{ needs.build-image.outputs.image_repository }}:${{ needs.build-image.outputs.image_tag }}"
+            echo "- Branch: ${{ inputs.dev_infra_ref }}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  notify:
+    name: Send CI/CD Notification
+    needs:
+      - python-quality
+      - build-image
+      - update-dev-gitops
+    if: ${{ always() && inputs.trigger_event == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send SMTP notification
+        continue-on-error: true
+        shell: bash
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          QUALITY_RESULT: ${{ needs.python-quality.result }}
+          BUILD_RESULT: ${{ needs.build-image.result }}
+          GITOPS_RESULT: ${{ needs.update-dev-gitops.result }}
+          IMAGE_REPOSITORY: ${{ needs.build-image.outputs.image_repository }}
+          IMAGE_TAG: ${{ needs.build-image.outputs.image_tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          import ssl
+          from email.message import EmailMessage
+
+          results = {
+              "quality": os.environ["QUALITY_RESULT"],
+              "build": os.environ["BUILD_RESULT"],
+              "gitops": os.environ["GITOPS_RESULT"],
+          }
+          status = "success" if all(value == "success" for value in results.values()) else "failure"
+          image = f'{os.environ.get("IMAGE_REPOSITORY", "")}:{os.environ.get("IMAGE_TAG", "")}'.strip(":")
+
+          message = EmailMessage()
+          message["Subject"] = f'[dev][{status}] {os.environ["SERVICE_NAME"]} CI/CD'
+          message["From"] = os.environ["EMAIL_USERNAME"]
+          message["To"] = os.environ["EMAIL_USERNAME"]
+          message.set_content(
+              f'Service: {os.environ["SERVICE_NAME"]}\n'
+              f'Environment: development\n'
+              f'Status: {status}\n'
+              f'Quality: {results["quality"]}\n'
+              f'Build: {results["build"]}\n'
+              f'GitOps update: {results["gitops"]}\n'
+              f'Image: {image or "not produced"}\n'
+              f'Run: {os.environ["RUN_URL"]}\n'
+          )
+
+          context = ssl.create_default_context()
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
+              server.login(os.environ["EMAIL_USERNAME"], os.environ["EMAIL_PASSWORD"])
+              server.send_message(message)
+          PY
+
