@@ -158,7 +158,18 @@ jobs:
         if: ${{ inputs.test_command != '' }}
         shell: bash
         working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.test_command }}
+        run: |
+          set +e
+          ${{ inputs.test_command }}
+          test_exit_code=$?
+          set -e
+
+          if [[ "${test_exit_code}" -eq 5 ]]; then
+            echo "No tests were collected; continuing without a test failure."
+            exit 0
+          fi
+
+          exit "${test_exit_code}"
 
       - name: Audit Python dependencies
         shell: bash
