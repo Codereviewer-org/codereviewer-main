@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: execution-service
+  namespace: codereviewer
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: execution-service
+  template:
+    metadata:
+      labels:
+        app: execution-service
+    spec:
+      containers:
+      - name: execution-service
+        image: thanusri22/execution-service:v2
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: coderaptor-config
+        - secretRef:
+            name: kv-secret
+            optional: true
+        ports:
+        - containerPort: 8002
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: execution-service
+  namespace: codereviewer
+spec:
+  selector:
+    app: execution-service
+  ports:
+  - port: 8002
+    targetPort: 8002
+  type: ClusterIP

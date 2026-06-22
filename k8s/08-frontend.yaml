@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: codereviewer
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: thanusri22/frontend:v2
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: coderaptor-config
+        - secretRef:
+            name: kv-secret
+            optional: true
+        ports:
+        - containerPort: 8501
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: codereviewer
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 8501
+    targetPort: 8501
+  type: ClusterIP

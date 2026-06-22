@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-service
+  namespace: codereviewer
+
+spec:
+  replicas: 1
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+
+  selector:
+    matchLabels:
+      app: review-service
+
+  template:
+    metadata:
+      labels:
+        app: review-service
+
+    spec:
+      containers:
+      - name: review-service
+        image: thanusri22/review-service:v2
+        imagePullPolicy: Always
+
+        envFrom:
+        - configMapRef:
+            name: coderaptor-config
+
+        - secretRef:
+            name: kv-secret
+            optional: true
+
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: kv-secret
+              key: DATABASE_URL
+              optional: true
+
+        ports:
+        - containerPort: 8004
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-service
+  namespace: codereviewer
+spec:
+  selector:
+    app: review-service
+  ports:
+  - port: 8004
+    targetPort: 8004
+  type: ClusterIP

@@ -1,0 +1,17 @@
+# Environment variables
+.env
+.gemini.txt
+
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+.venv/
+
+# Databases
+*.db
+auth_service/*.db
+review_service/*.db
+node_modules
+k8s/secrets.yaml

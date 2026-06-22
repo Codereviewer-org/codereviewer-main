@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-coderaptor}
+      - POSTGRES_USER=${POSTGRES_USER:-coderaptor}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-coderaptor}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./auth_service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8001"
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-coderaptor}:${POSTGRES_PASSWORD:-coderaptor}@postgres:5432/${POSTGRES_DB:-coderaptor}
+    volumes:
+      - ./auth_service:/app
+
+  execution-service:
+    build: ./execution_service
+    restart: unless-stopped
+    expose:
+      - "8002"
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./execution_service:/app
+
+  ai-service:
+    build: ./ai_service
+    restart: unless-stopped
+    expose:
+      - "8003"
+    ports:
+      - "8003:8003"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2025-01-01-preview}
+    volumes:
+      - ./ai_service:/app
+
+  review-service:
+    build: ./review_service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8004"
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-coderaptor}:${POSTGRES_PASSWORD:-coderaptor}@postgres:5432/${POSTGRES_DB:-coderaptor}
+      - AI_SERVICE_URL=http://ai-service:8003
+    volumes:
+      - ./review_service:/app
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - execution-service
+      - ai-service
+      - review-service
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - EXECUTION_SERVICE_URL=http://execution-service:8002
+      - AI_SERVICE_URL=http://ai-service:8003
+      - REVIEW_SERVICE_URL=http://review-service:8004
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  postgres_data:
