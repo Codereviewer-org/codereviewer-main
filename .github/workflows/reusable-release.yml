@@ -23,7 +23,7 @@ on:
         type: string
       dev_infra_ref:
         required: false
-        default: "test"
+        default: "main"
         type: string
       prod_infra_ref:
         required: false
