@@ -1,0 +1,267 @@
+name: Reusable Python Service Release
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Release version in vX.Y.Z or service-name-vX.Y.Z format.
+        required: true
+        type: string
+      service_name:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      helm_service_key:
+        description: Key below services in the Helm values files.
+        required: true
+        type: string
+      infra_repository:
+        required: false
+        default: "CodeReviewer-org/platform-deployment"
+        type: string
+      dev_infra_ref:
+        required: false
+        default: "test"
+        type: string
+      prod_infra_ref:
+        required: false
+        default: "main"
+        type: string
+      dev_values_path:
+        required: false
+        default: "helm/values-dev.yaml"
+        type: string
+      prod_values_path:
+        required: false
+        default: "helm/values-prod.yaml"
+        type: string
+    secrets:
+      ACR_LOGIN_SERVER:
+        required: true
+      ACR_USERNAME:
+        required: true
+      ACR_PASSWORD:
+        required: true
+      INFRA_REPO_TOKEN:
+        required: true
+      EMAIL_USERNAME:
+        required: true
+      EMAIL_PASSWORD:
+        required: true
+    outputs:
+      image_repository:
+        description: ACR repository promoted by the release.
+        value: ${{ jobs.promote.outputs.image_repository }}
+      release_version:
+        description: Normalized semantic release version.
+        value: ${{ jobs.promote.outputs.release_version }}
+      source_tag:
+        description: Immutable dev image tag promoted to production.
+        value: ${{ jobs.promote.outputs.source_tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote Dev Image to Production
+    runs-on: ubuntu-latest
+    outputs:
+      image_repository: ${{ steps.metadata.outputs.image_repository }}
+      release_version: ${{ steps.metadata.outputs.release_version }}
+      source_tag: ${{ steps.metadata.outputs.source_tag }}
+    steps:
+      - name: Checkout dev infrastructure values
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.infra_repository }}
+          ref: ${{ inputs.dev_infra_ref }}
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: dev-infra
+
+      - name: Checkout prod infrastructure values
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.infra_repository }}
+          ref: ${{ inputs.prod_infra_ref }}
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: prod-infra
+          fetch-depth: 0
+
+      - name: Install yq
+        shell: bash
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Resolve release metadata
+        id: metadata
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          EXPECTED_IMAGE_NAME: ${{ inputs.image_name }}
+          EXPECTED_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          HELM_SERVICE_KEY: ${{ inputs.helm_service_key }}
+          DEV_VALUES_PATH: dev-infra/${{ inputs.dev_values_path }}
+        run: |
+          release_version="${RELEASE_TAG}"
+          prefix="${SERVICE_NAME}-"
+          if [[ "${release_version}" == "${prefix}"* ]]; then
+            release_version="${release_version#${prefix}}"
+          fi
+
+          if [[ ! "${release_version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z._-]+)?$ ]]; then
+            echo "Release tag must be vX.Y.Z or ${SERVICE_NAME}-vX.Y.Z."
+            exit 1
+          fi
+
+          yq -e '.services[strenv(HELM_SERVICE_KEY)]' "${DEV_VALUES_PATH}" >/dev/null
+          image_namespace="$(yq -r '.image.registry' "${DEV_VALUES_PATH}")"
+          image_name="$(yq -r '.services[strenv(HELM_SERVICE_KEY)].image' "${DEV_VALUES_PATH}")"
+          source_tag="$(yq -r '.services[strenv(HELM_SERVICE_KEY)].tag' "${DEV_VALUES_PATH}")"
+
+          if [[ -z "${image_namespace}" || "${image_namespace}" == "null" || -z "${source_tag}" || "${source_tag}" == "null" ]]; then
+            echo "Dev values do not contain a deployable image for ${HELM_SERVICE_KEY}."
+            exit 1
+          fi
+
+          if [[ "${image_name}" != "${EXPECTED_IMAGE_NAME}" ]]; then
+            echo "Dev values image '${image_name}' does not match expected '${EXPECTED_IMAGE_NAME}'."
+            exit 1
+          fi
+
+          if [[ "${image_namespace}" != "${EXPECTED_LOGIN_SERVER}" ]]; then
+            echo "Dev values registry '${image_namespace}' does not match configured ACR '${EXPECTED_LOGIN_SERVER}'."
+            exit 1
+          fi
+
+          echo "image_repository=${image_namespace}/${image_name}" >> "${GITHUB_OUTPUT}"
+          echo "release_version=${release_version}" >> "${GITHUB_OUTPUT}"
+          echo "source_tag=${source_tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Verify source image exists
+        shell: bash
+        run: docker manifest inspect "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.source_tag }}" >/dev/null
+
+      - name: Promote image tag
+        shell: bash
+        run: |
+          docker pull "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.source_tag }}"
+          docker tag \
+            "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.source_tag }}" \
+            "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.release_version }}"
+          docker push "${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.release_version }}"
+
+      - name: Update and push prod values
+        shell: bash
+        working-directory: prod-infra
+        env:
+          INFRA_REF: ${{ inputs.prod_infra_ref }}
+          VALUES_PATH: ${{ inputs.prod_values_path }}
+          HELM_SERVICE_KEY: ${{ inputs.helm_service_key }}
+          IMAGE_NAMESPACE: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "${INFRA_REF}"
+            git switch --detach "origin/${INFRA_REF}"
+
+            yq -e '.services[strenv(HELM_SERVICE_KEY)]' "${VALUES_PATH}" >/dev/null
+            yq -i '
+              .image.registry = strenv(IMAGE_NAMESPACE) |
+              .services[strenv(HELM_SERVICE_KEY)].image = strenv(IMAGE_NAME) |
+              .services[strenv(HELM_SERVICE_KEY)].tag = strenv(RELEASE_VERSION)
+            ' "${VALUES_PATH}"
+
+            if git diff --quiet -- "${VALUES_PATH}"; then
+              echo "Prod values already reference ${IMAGE_NAME}:${RELEASE_VERSION}."
+              exit 0
+            fi
+
+            git add "${VALUES_PATH}"
+            git commit -m "release: promote ${SERVICE_NAME} to ${RELEASE_VERSION} [skip ci]"
+
+            if git push origin "HEAD:${INFRA_REF}"; then
+              exit 0
+            fi
+
+            echo "Concurrent GitOps update detected; retrying (${attempt}/5)."
+            sleep $((attempt * 3))
+          done
+
+          echo "Unable to update ${INFRA_REF} after five attempts."
+          exit 1
+
+      - name: Write release summary
+        shell: bash
+        run: |
+          {
+            echo "### Production release"
+            echo "- Service: ${{ inputs.service_name }}"
+            echo "- Image: ${{ steps.metadata.outputs.image_repository }}:${{ steps.metadata.outputs.release_version }}"
+            echo "- Promoted from: ${{ steps.metadata.outputs.source_tag }}"
+            echo "- Branch: ${{ inputs.prod_infra_ref }}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  notify:
+    name: Send Release Notification
+    needs: promote
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send SMTP notification
+        continue-on-error: true
+        shell: bash
+        env:
+          EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          PROMOTE_RESULT: ${{ needs.promote.result }}
+          IMAGE_REPOSITORY: ${{ needs.promote.outputs.image_repository }}
+          RELEASE_VERSION: ${{ needs.promote.outputs.release_version }}
+          SOURCE_TAG: ${{ needs.promote.outputs.source_tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          import ssl
+          from email.message import EmailMessage
+
+          status = "success" if os.environ["PROMOTE_RESULT"] == "success" else "failure"
+          image = f'{os.environ.get("IMAGE_REPOSITORY", "")}:{os.environ.get("RELEASE_VERSION", "")}'.strip(":")
+
+          message = EmailMessage()
+          message["Subject"] = f'[prod][{status}] {os.environ["SERVICE_NAME"]} release'
+          message["From"] = os.environ["EMAIL_USERNAME"]
+          message["To"] = os.environ["EMAIL_USERNAME"]
+          message.set_content(
+              f'Service: {os.environ["SERVICE_NAME"]}\n'
+              f'Environment: production\n'
+              f'Status: {status}\n'
+              f'Image: {image or "not produced"}\n'
+              f'Promoted from: {os.environ.get("SOURCE_TAG", "not available")}\n'
+              f'Run: {os.environ["RUN_URL"]}\n'
+          )
+
+          context = ssl.create_default_context()
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
+              server.login(os.environ["EMAIL_USERNAME"], os.environ["EMAIL_PASSWORD"])
+              server.send_message(message)
+          PY
