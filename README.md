@@ -2,6 +2,8 @@
 
 Code Raptor is a microservice-based AI code review platform. It provides a Streamlit UI for code review, code execution, repository analysis, review history, and code health dashboards backed by FastAPI services, PostgreSQL, and Azure OpenAI / Azure AI Foundry.
 
+For setup, deployment, Argo CD, Azure Key Vault, CI/CD, operations, and
+troubleshooting, see the [complete application and operations guide](DOCUMENTATION.md).
 For a deeper architecture walkthrough, see [CODE_RAPTOR.md](CODE_RAPTOR.md).
 
 ## Features
