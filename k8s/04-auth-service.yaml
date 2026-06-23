@@ -34,7 +34,6 @@ spec:
 
         - secretRef:
             name: kv-secret
-            optional: true
 
         env:
         - name: DATABASE_URL
@@ -42,13 +41,11 @@ spec:
             secretKeyRef:
               name: kv-secret
               key: DATABASE_URL
-              optional: true
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
               name: kv-secret
               key: JWT_SECRET
-              optional: true
 
         ports:
         - containerPort: 8001
@@ -57,6 +54,19 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
+
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: /mnt/secrets-store
+          readOnly: true
+
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: kv-secrets
 ---
 apiVersion: v1
 kind: Service

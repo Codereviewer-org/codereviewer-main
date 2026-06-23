@@ -34,7 +34,6 @@ spec:
 
         - secretRef:
             name: kv-secret
-            optional: true
 
         env:
         - name: AZURE_OPENAI_API_KEY
@@ -42,7 +41,6 @@ spec:
             secretKeyRef:
               name: kv-secret
               key: AZURE_OPENAI_API_KEY
-              optional: true
 
         ports:
         - containerPort: 8003
@@ -51,6 +49,19 @@ spec:
           requests:
             cpu: 200m
             memory: 128Mi
+
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: /mnt/secrets-store
+          readOnly: true
+
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: kv-secrets
 ---
 apiVersion: v1
 kind: Service

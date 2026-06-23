@@ -26,16 +26,25 @@ spec:
             name: {{ $.Values.configMap.name }}
         - secretRef:
             name: {{ $.Values.secret.name }}
-            optional: true
         env:
         - name: AZURE_OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.secret.name }}
               key: AZURE_OPENAI_API_KEY
-              optional: true
         ports:
         - containerPort: {{ $.Values.services.ai.port }}
         resources:
 {{ toYaml $.Values.services.ai.resources | indent 10 }}
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: /mnt/secrets-store
+          readOnly: true
+      volumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ $.Values.secretProviderClass.name }}
 {{- end }}
