@@ -42,7 +42,7 @@ services:
     port: 8001
     resources:
       requests:
-        cpu: 100m
+        cpu: 50m
         memory: 64Mi
   execution:
     name: execution-service
@@ -51,7 +51,7 @@ services:
     port: 8002
     resources:
       requests:
-        cpu: 100m
+        cpu: 50m
         memory: 64Mi
   ai:
     name: ai-service
@@ -60,7 +60,7 @@ services:
     port: 8003
     resources:
       requests:
-        cpu: 200m
+        cpu: 100m
         memory: 128Mi
   review:
     name: review-service
@@ -69,7 +69,7 @@ services:
     port: 8004
     resources:
       requests:
-        cpu: 100m
+        cpu: 50m
         memory: 64Mi
   frontend:
     name: frontend
@@ -79,7 +79,7 @@ services:
     port: 8501
     resources:
       requests:
-        cpu: 100m
+        cpu: 50m
         memory: 64Mi
 
 keyvaultSync:
