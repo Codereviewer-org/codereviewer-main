@@ -39,6 +39,11 @@ variable "name_prefix" {
 variable "alert_email" {
   description = "Email address that receives Azure Monitor alerts."
   type        = string
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alert_email))
+    error_message = "alert_email must be a valid email address, for example name@example.com."
+  }
 }
 
 variable "postgresql_administrator_login" {
@@ -66,9 +71,9 @@ variable "vm_admin_password" {
 }
 
 variable "vm_size" {
-  description = "Ubuntu jumpbox VM size for the quota-constrained demo profile."
+  description = "Ubuntu jumpbox VM size. This must match available regional quota."
   type        = string
-  default     = "Standard_B2s_v2"
+  default     = "Standard_D2s_v3"
 }
 
 variable "create_jumpbox_vm" {
@@ -90,18 +95,18 @@ variable "postgresql_high_availability_enabled" {
 variable "system_node_vm_size" {
   description = "AKS system pool VM SKU."
   type        = string
-  default     = "Standard_B2s_v2"
+  default     = "Standard_D2s_v3"
 }
 
 variable "workload_node_vm_size" {
-  description = "AKS application pool VM SKU. Default is reduced for a quota-constrained demo profile."
+  description = "AKS application pool VM SKU. This must match available regional quota."
   type        = string
-  default     = "Standard_B2s_v2"
+  default     = "Standard_D2s_v3"
 }
 
 variable "workload_node_min_count" {
   type    = number
-  default = 1
+  default = 0
 }
 
 variable "workload_node_max_count" {

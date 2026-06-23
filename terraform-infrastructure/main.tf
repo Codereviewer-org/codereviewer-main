@@ -17,7 +17,7 @@ locals {
     acr                 = substr("${local.normalized_prefix}acr${local.suffix}", 0, 50)
     key_vault           = substr("${local.common_name}-${local.suffix}-kv", 0, 24)
     postgresql          = substr("${local.common_name}-${local.suffix}-psql", 0, 63)
-    service_bus         = substr("${local.common_name}-${local.suffix}-sb", 0, 50)
+    service_bus         = substr("${local.common_name}-sb-${local.suffix}", 0, 50)
     vm                  = "${local.common_name}-jumpbox"
   }
 
@@ -77,14 +77,15 @@ module "container_registry" {
 module "key_vault" {
   source = "./modules/key-vault"
 
-  name                       = local.names.key_vault
-  resource_group_name        = data.azurerm_resource_group.platform.name
-  location                   = var.location
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  private_endpoint_subnet_id = module.networking.subnet_ids.private_endpoint
-  vnet_id                    = module.networking.vnet_id
-  administrator_object_id    = data.azurerm_client_config.current.object_id
-  tags                       = local.tags
+  name                         = local.names.key_vault
+  resource_group_name          = data.azurerm_resource_group.platform.name
+  location                     = var.location
+  tenant_id                    = data.azurerm_client_config.current.tenant_id
+  private_endpoint_subnet_id   = module.networking.subnet_ids.private_endpoint
+  vnet_id                      = module.networking.vnet_id
+  administrator_object_id      = data.azurerm_client_config.current.object_id
+  administrator_principal_type = "User"
+  tags                         = local.tags
 }
 
 module "postgresql" {
@@ -160,6 +161,7 @@ module "monitoring" {
   application_gateway_id = module.application_gateway.id
   service_bus_id         = module.service_bus.id
   vm_id                  = var.create_jumpbox_vm ? module.linux_vm[0].id : null
+  vm_alert_enabled       = var.create_jumpbox_vm
   tags                   = local.tags
 }
 

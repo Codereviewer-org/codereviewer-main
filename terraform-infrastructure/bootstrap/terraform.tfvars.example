@@ -1,5 +1,5 @@
-subscription_id                    = "00000000-0000-0000-0000-000000000000"
-resource_group_name                = "rg-codereviewer-platform"
-location                           = "australiaeast"
-name_prefix                        = "coderaptor"
-backend_principal_object_id        = null
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+resource_group_name  = "thanu-rg"
+storage_account_name = "storageaccounttaa"
+container_name       = "container"
+state_key            = "platform.prod.tfstate"

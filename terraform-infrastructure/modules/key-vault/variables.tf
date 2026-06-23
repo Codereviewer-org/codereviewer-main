@@ -27,6 +27,17 @@ variable "administrator_object_id" {
   type        = string
 }
 
+variable "administrator_principal_type" {
+  description = "Principal type for administrator_object_id."
+  type        = string
+  default     = "User"
+
+  validation {
+    condition     = contains(["User", "Group", "ServicePrincipal"], var.administrator_principal_type)
+    error_message = "administrator_principal_type must be User, Group, or ServicePrincipal."
+  }
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

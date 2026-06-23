@@ -16,7 +16,8 @@ resource "azurerm_role_assignment" "administrator" {
   scope                            = azurerm_key_vault.this.id
   role_definition_name             = "Key Vault Administrator"
   principal_id                     = var.administrator_object_id
-  skip_service_principal_aad_check = true
+  principal_type                   = var.administrator_principal_type
+  skip_service_principal_aad_check = var.administrator_principal_type == "ServicePrincipal"
 }
 
 resource "azurerm_private_dns_zone" "this" {

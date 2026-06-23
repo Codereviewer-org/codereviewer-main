@@ -36,7 +36,7 @@ variable "log_analytics_workspace_id" {
 
 variable "system_node_vm_size" {
   type    = string
-  default = "Standard_B2s_v2"
+  default = "Standard_D2s_v3"
 }
 
 variable "system_node_min_count" {
@@ -51,12 +51,12 @@ variable "system_node_max_count" {
 
 variable "workload_node_vm_size" {
   type    = string
-  default = "Standard_B2s_v2"
+  default = "Standard_D2s_v3"
 }
 
 variable "workload_node_min_count" {
   type    = number
-  default = 1
+  default = 0
 }
 
 variable "workload_node_max_count" {

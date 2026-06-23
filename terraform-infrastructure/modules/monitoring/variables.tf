@@ -16,6 +16,11 @@ variable "location" {
 
 variable "alert_email" {
   type = string
+
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.alert_email))
+    error_message = "alert_email must be a valid email address, for example name@example.com."
+  }
 }
 
 variable "aks_id" {
@@ -38,6 +43,11 @@ variable "vm_id" {
   type     = string
   nullable = true
   default  = null
+}
+
+variable "vm_alert_enabled" {
+  type    = bool
+  default = false
 }
 
 variable "tags" {

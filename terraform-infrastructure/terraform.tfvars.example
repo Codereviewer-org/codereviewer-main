@@ -1,6 +1,6 @@
 subscription_id                        = "00000000-0000-0000-0000-000000000000"
-resource_group_name                    = "rg-codereviewer-platform"
-terraform_state_storage_account_name   = "REPLACE_FROM_BOOTSTRAP_OUTPUT"
+resource_group_name                    = "thanu-rg"
+terraform_state_storage_account_name   = "storageaccounttaa"
 location                               = "australiaeast"
 environment                            = "prod"
 name_prefix                            = "coderaptor"
@@ -8,14 +8,14 @@ alert_email                            = "platform-team@example.com"
 postgresql_administrator_login         = "postgress"
 postgresql_high_availability_enabled   = false
 postgresql_sku_name                    = "GP_Standard_D2s_v3"
-system_node_vm_size                    = "Standard_B2s_v2"
-workload_node_vm_size                  = "Standard_B2s_v2"
-workload_node_min_count                = 1
+system_node_vm_size                    = "Standard_D2s_v3"
+workload_node_vm_size                  = "Standard_D2s_v3"
+workload_node_min_count                = 0
 workload_node_max_count                = 1
 availability_zones                     = []
 acr_public_network_access_enabled      = true
 vm_admin_username                      = "azure"
-vm_size                                = "Standard_B2s_v2"
+vm_size                                = "Standard_D2s_v3"
 create_jumpbox_vm                      = true
 admin_source_cidr                      = "203.0.113.10/32"
 

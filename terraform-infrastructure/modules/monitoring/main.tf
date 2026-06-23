@@ -74,7 +74,7 @@ locals {
       scope       = var.service_bus_id
       namespace   = "Microsoft.ServiceBus/namespaces"
       metric      = "DeadletteredMessages"
-      aggregation = "Total"
+      aggregation = "Average"
       operator    = "GreaterThan"
       threshold   = 0
       severity    = 2
@@ -82,7 +82,7 @@ locals {
     }
   }
 
-  vm_metric_alerts = var.vm_id == null ? {} : {
+  vm_metric_alerts = var.vm_alert_enabled ? {
     vm_cpu = {
       scope       = var.vm_id
       namespace   = "Microsoft.Compute/virtualMachines"
@@ -93,7 +93,7 @@ locals {
       severity    = 2
       description = "Jumpbox VM CPU usage is above 80 percent."
     }
-  }
+  } : {}
 
   metric_alerts = merge(local.base_metric_alerts, local.vm_metric_alerts)
 }

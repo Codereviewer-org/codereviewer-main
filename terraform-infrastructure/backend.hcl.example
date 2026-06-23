@@ -1,5 +1,5 @@
-resource_group_name  = "rg-codereviewer-platform"
-storage_account_name = "REPLACE_FROM_BOOTSTRAP_OUTPUT"
-container_name       = "tfstate"
+resource_group_name  = "thanu-rg"
+storage_account_name = "storageaccounttaa"
+container_name       = "container"
 key                  = "platform.prod.tfstate"
 use_azuread_auth     = true

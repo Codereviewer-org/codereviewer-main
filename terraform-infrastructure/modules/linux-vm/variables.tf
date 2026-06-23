@@ -30,7 +30,7 @@ variable "admin_password" {
 variable "vm_size" {
   description = "Ubuntu jumpbox size. This consumes regional compute quota."
   type        = string
-  default     = "Standard_B2s_v2"
+  default     = "Standard_D2s_v3"
 }
 
 variable "tags" {
