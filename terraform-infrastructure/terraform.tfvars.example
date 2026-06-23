@@ -1,0 +1,28 @@
+subscription_id                        = "00000000-0000-0000-0000-000000000000"
+resource_group_name                    = "rg-codereviewer-platform"
+terraform_state_storage_account_name   = "REPLACE_FROM_BOOTSTRAP_OUTPUT"
+location                               = "centralindia"
+environment                            = "prod"
+name_prefix                            = "coderaptor"
+alert_email                            = "platform-team@example.com"
+postgresql_administrator_login         = "postgress"
+postgresql_high_availability_enabled   = false
+postgresql_sku_name                    = "GP_Standard_D2s_v3"
+system_node_vm_size                    = "Standard_D2s_v5"
+workload_node_vm_size                  = "Standard_D4s_v5"
+workload_node_min_count                = 2
+workload_node_max_count                = 4
+availability_zones                     = ["1", "3"]
+acr_public_network_access_enabled      = true
+vm_admin_username                      = "azure"
+vm_size                                = "Standard_D2s_v5"
+admin_source_cidr                      = "203.0.113.10/32"
+
+# Do not put postgresql_administrator_password here in source control.
+# Do not put vm_admin_password here either. Export both instead:
+#   Bash:
+#     export TF_VAR_postgresql_administrator_password='...'
+#     export TF_VAR_vm_admin_password='...'
+#   PowerShell:
+#     $env:TF_VAR_postgresql_administrator_password='...'
+#     $env:TF_VAR_vm_admin_password='...'
