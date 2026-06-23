@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Code Raptor Application Architecture</title>
+  <desc id="desc">Architecture diagram showing the Streamlit frontend, four FastAPI services, PostgreSQL, execution runtimes, repository analyzers, Azure OpenAI, and GitHub.</desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f9ff"/>
+      <stop offset="1" stop-color="#eef4ff"/>
+    </linearGradient>
+    <linearGradient id="frontGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b5ce2"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="serviceGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f5f7ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#24356b" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#53658f"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6657d9"/>
+    </marker>
+    <style>
+      .title { font: 700 38px Inter, "Segoe UI", Arial, sans-serif; fill: #15213d; }
+      .subtitle { font: 400 18px Inter, "Segoe UI", Arial, sans-serif; fill: #63708f; }
+      .section { font: 700 17px Inter, "Segoe UI", Arial, sans-serif; fill: #4d5c7c; letter-spacing: 1.4px; }
+      .box-title { font: 700 22px Inter, "Segoe UI", Arial, sans-serif; fill: #17223f; }
+      .box-text { font: 400 15px Inter, "Segoe UI", Arial, sans-serif; fill: #5d6986; }
+      .white-title { font: 700 25px Inter, "Segoe UI", Arial, sans-serif; fill: #ffffff; }
+      .white-text { font: 400 16px Inter, "Segoe UI", Arial, sans-serif; fill: #ecebff; }
+      .port { font: 600 14px Inter, "Segoe UI", Arial, sans-serif; fill: #6254d8; }
+      .small { font: 500 13px Inter, "Segoe UI", Arial, sans-serif; fill: #66728e; }
+      .flow { fill: none; stroke: #53658f; stroke-width: 3; marker-end: url(#arrow); }
+      .flow-purple { fill: none; stroke: #6657d9; stroke-width: 3; marker-end: url(#arrowPurple); }
+      .bus { fill: none; stroke: #8b96b2; stroke-width: 3; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1080" fill="url(#background)"/>
+  <circle cx="1490" cy="90" r="170" fill="#7768e8" opacity="0.06"/>
+  <circle cx="90" cy="990" r="210" fill="#3ba7a0" opacity="0.06"/>
+
+  <text x="80" y="68" class="title">Code Raptor Application Architecture</text>
+  <text x="80" y="100" class="subtitle">Streamlit presentation, FastAPI microservices, analysis engines, data, and external AI integrations</text>
+
+  <!-- User -->
+  <g transform="translate(65 184)">
+    <circle cx="55" cy="40" r="27" fill="#dfe4ff"/>
+    <circle cx="55" cy="32" r="12" fill="#6657d9"/>
+    <path d="M31 63 C34 45, 76 45, 79 63 Z" fill="#6657d9"/>
+    <rect x="7" y="0" width="96" height="96" rx="24" fill="none" stroke="#b8c1db" stroke-width="2"/>
+    <text x="55" y="123" text-anchor="middle" class="box-title" font-size="18">User</text>
+    <text x="55" y="146" text-anchor="middle" class="small">Web browser</text>
+  </g>
+
+  <!-- Presentation layer -->
+  <rect x="225" y="140" width="1295" height="190" rx="28" fill="#ffffff" opacity="0.72" stroke="#d8deee" stroke-width="2"/>
+  <text x="260" y="177" class="section">PRESENTATION LAYER</text>
+  <g filter="url(#shadow)">
+    <rect x="510" y="190" width="720" height="105" rx="22" fill="url(#frontGradient)"/>
+  </g>
+  <rect x="540" y="214" width="58" height="58" rx="14" fill="#ffffff" opacity="0.16"/>
+  <path d="M552 229 h34 v25 h-34 z M558 236 h22 M558 243 h22 M558 250 h14" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <text x="625" y="230" class="white-title">Streamlit Frontend</text>
+  <text x="625" y="260" class="white-text">Authentication UI • Code editor • Review results • Repository dashboards</text>
+  <text x="1170" y="249" text-anchor="end" class="white-text">Port 8501</text>
+
+  <path d="M168 230 H510" class="flow-purple"/>
+
+  <!-- Frontend to service bus -->
+  <path d="M870 295 V365" class="bus"/>
+  <path d="M280 365 H1320" class="bus"/>
+  <circle cx="870" cy="365" r="6" fill="#8b96b2"/>
+
+  <!-- Service layer -->
+  <text x="80" y="405" class="section">FASTAPI MICROSERVICES</text>
+
+  <!-- Auth -->
+  <g filter="url(#shadow)">
+    <rect x="120" y="435" width="300" height="170" rx="22" fill="url(#serviceGradient)" stroke="#d8deee"/>
+  </g>
+  <rect x="120" y="435" width="8" height="170" rx="4" fill="#4f7cf3"/>
+  <circle cx="165" cy="479" r="22" fill="#e5edff"/>
+  <path d="M157 479 l6 6 12-14" fill="none" stroke="#4f7cf3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="200" y="478" class="box-title">Auth Service</text>
+  <text x="200" y="502" class="port">Port 8001</text>
+  <text x="153" y="542" class="box-text">• User registration and login</text>
+  <text x="153" y="568" class="box-text">• JWT creation and validation</text>
+  <path d="M280 365 V435" class="flow"/>
+
+  <!-- Execution -->
+  <g filter="url(#shadow)">
+    <rect x="470" y="435" width="300" height="170" rx="22" fill="url(#serviceGradient)" stroke="#d8deee"/>
+  </g>
+  <rect x="470" y="435" width="8" height="170" rx="4" fill="#ef8b3d"/>
+  <circle cx="515" cy="479" r="22" fill="#fff0e4"/>
+  <path d="M505 471 l-8 8 8 8 M525 471 l8 8-8 8" fill="none" stroke="#e67c2f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="550" y="478" class="box-title">Execution Service</text>
+  <text x="550" y="502" class="port" fill="#d9752b">Port 8002</text>
+  <text x="503" y="542" class="box-text">• Execute Python, Java and Node.js</text>
+  <text x="503" y="568" class="box-text">• Validate YAML with time limits</text>
+  <path d="M620 365 V435" class="flow"/>
+
+  <!-- AI -->
+  <g filter="url(#shadow)">
+    <rect x="820" y="435" width="300" height="170" rx="22" fill="url(#serviceGradient)" stroke="#d8deee"/>
+  </g>
+  <rect x="820" y="435" width="8" height="170" rx="4" fill="#8a5be8"/>
+  <circle cx="865" cy="479" r="22" fill="#eee7ff"/>
+  <path d="M865 462 v34 M848 479 h34 M853 467 l24 24 M877 467 l-24 24" stroke="#7a4bd7" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="900" y="478" class="box-title">AI Service</text>
+  <text x="900" y="502" class="port">Port 8003</text>
+  <text x="853" y="542" class="box-text">• AI code and repository review</text>
+  <text x="853" y="568" class="box-text">• Corrected code and image extraction</text>
+  <path d="M970 365 V435" class="flow"/>
+
+  <!-- Review -->
+  <g filter="url(#shadow)">
+    <rect x="1170" y="435" width="300" height="170" rx="22" fill="url(#serviceGradient)" stroke="#d8deee"/>
+  </g>
+  <rect x="1170" y="435" width="8" height="170" rx="4" fill="#2fa99f"/>
+  <circle cx="1215" cy="479" r="22" fill="#def7f4"/>
+  <path d="M1204 489 v-12 M1215 489 v-22 M1226 489 v-31" stroke="#299c93" stroke-width="4" stroke-linecap="round"/>
+  <text x="1250" y="478" class="box-title">Review Service</text>
+  <text x="1250" y="502" class="port" fill="#299c93">Port 8004</text>
+  <text x="1203" y="542" class="box-text">• Review history and repository jobs</text>
+  <text x="1203" y="568" class="box-text">• Metrics, health scores and reports</text>
+  <path d="M1320 365 V435" class="flow"/>
+
+  <!-- Review-to-AI service relationship -->
+  <path d="M1170 520 H1120" class="flow-purple"/>
+  <text x="1145" y="507" text-anchor="middle" class="small">AI analysis</text>
+
+  <!-- Platform engines and data -->
+  <text x="80" y="690" class="section">DATA, RUNTIMES AND EXTERNAL SERVICES</text>
+
+  <!-- PostgreSQL -->
+  <g filter="url(#shadow)">
+    <rect x="85" y="730" width="260" height="160" rx="22" fill="#ffffff" stroke="#cfd8ee"/>
+  </g>
+  <ellipse cx="140" cy="773" rx="27" ry="10" fill="#dfe9ff" stroke="#4775cf" stroke-width="2"/>
+  <path d="M113 773 v40 c0 6 12 10 27 10s27-4 27-10v-40 M113 793 c0 6 12 10 27 10s27-4 27-10" fill="#dfe9ff" stroke="#4775cf" stroke-width="2"/>
+  <text x="185" y="778" class="box-title">PostgreSQL</text>
+  <text x="185" y="803" class="box-text">Users and reviews</text>
+  <text x="118" y="856" class="small">Jobs • Metrics • Reports</text>
+
+  <!-- Execution engines -->
+  <g filter="url(#shadow)">
+    <rect x="395" y="730" width="280" height="160" rx="22" fill="#ffffff" stroke="#f0d3bb"/>
+  </g>
+  <text x="430" y="772" class="box-title">Execution Runtimes</text>
+  <rect x="430" y="803" width="54" height="32" rx="9" fill="#e8f1ff"/>
+  <rect x="493" y="803" width="54" height="32" rx="9" fill="#fff0e2"/>
+  <rect x="556" y="803" width="54" height="32" rx="9" fill="#fff8d9"/>
+  <rect x="619" y="803" width="32" height="32" rx="9" fill="#e8f8f5"/>
+  <text x="457" y="824" text-anchor="middle" class="small">Py</text>
+  <text x="520" y="824" text-anchor="middle" class="small">Java</text>
+  <text x="583" y="824" text-anchor="middle" class="small">JS</text>
+  <text x="635" y="824" text-anchor="middle" class="small">YML</text>
+  <text x="430" y="861" class="box-text">Sandboxed execution and validation</text>
+
+  <!-- Azure OpenAI -->
+  <g filter="url(#shadow)">
+    <rect x="725" y="730" width="260" height="160" rx="22" fill="#ffffff" stroke="#d9cdf5"/>
+  </g>
+  <circle cx="780" cy="782" r="28" fill="#eee8ff"/>
+  <path d="M780 757 c20 0 27 25 11 34 c-5 20-33 16-34-3 c-15-14 2-36 23-31z" fill="none" stroke="#7652c8" stroke-width="3"/>
+  <text x="825" y="779" class="box-title">Azure OpenAI</text>
+  <text x="825" y="805" class="box-text">LLM deployment</text>
+  <text x="758" y="856" class="small">Review • Correction • Extraction</text>
+
+  <!-- Analysis engine -->
+  <g filter="url(#shadow)">
+    <rect x="1035" y="730" width="285" height="160" rx="22" fill="#ffffff" stroke="#cce8e5"/>
+  </g>
+  <circle cx="1090" cy="782" r="27" fill="#e1f6f3"/>
+  <path d="M1075 793 l9-12 9 7 13-19" fill="none" stroke="#299c93" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1130" y="779" class="box-title">Analysis Engine</text>
+  <text x="1130" y="805" class="box-text">Static analyzers</text>
+  <text x="1068" y="856" class="small">Code metrics • Health • Recommendations</text>
+
+  <!-- GitHub -->
+  <g filter="url(#shadow)">
+    <rect x="1370" y="730" width="150" height="160" rx="22" fill="#ffffff" stroke="#d6dbea"/>
+  </g>
+  <circle cx="1445" cy="780" r="29" fill="#e9ecf4"/>
+  <path d="M1445 755 c-16 0-29 13-29 29 c0 13 8 24 19 28 c2 0 3-1 3-2 v-6 c-8 2-10-4-10-4 c-1-4-4-5-4-5 c-3-2 0-2 0-2 c4 0 6 4 6 4 c3 6 9 4 11 3 c0-3 1-5 3-6 c-7-1-14-3-14-15 c0-4 1-7 4-10 c0-1-2-5 0-10 c0 0 4-1 11 4 c3-1 6-1 9-1 c3 0 6 0 9 1 c7-5 11-4 11-4 c2 5 0 9 0 10 c3 3 4 6 4 10 c0 12-7 14-14 15 c2 2 3 5 3 9 v7 c0 2 1 3 3 2 c11-4 19-15 19-28 c0-16-13-29-29-29z" fill="#45506b" transform="translate(-15 -3) scale(1.03)"/>
+  <text x="1445" y="838" text-anchor="middle" class="box-title">GitHub</text>
+  <text x="1445" y="864" text-anchor="middle" class="small">Repositories</text>
+
+  <!-- Downstream connections -->
+  <path d="M270 605 V675 H215 V730" class="flow"/>
+  <path d="M620 605 V730" class="flow"/>
+  <path d="M970 605 V675 H855 V730" class="flow-purple"/>
+  <path d="M1320 605 V675 H1178 V730" class="flow"/>
+  <path d="M1370 810 H1320" class="flow"/>
+  <path d="M1035 850 H985" class="flow-purple"/>
+  <path d="M1035 870 C820 960, 440 960, 215 890" class="flow"/>
+
+  <!-- Labels -->
+  <text x="235" y="660" class="small">Persist users</text>
+  <text x="640" y="660" class="small">Run code</text>
+  <text x="885" y="660" class="small">AI requests</text>
+  <text x="1205" y="660" class="small">Analyze repository</text>
+  <text x="1345" y="797" text-anchor="middle" class="small">Clone</text>
+  <text x="1010" y="840" text-anchor="middle" class="small">AI enrichment</text>
+  <text x="610" y="950" text-anchor="middle" class="small">Store repository jobs, analysis metrics and generated reports</text>
+
+  <!-- Legend -->
+  <rect x="80" y="1000" width="1440" height="52" rx="16" fill="#ffffff" opacity="0.85" stroke="#dde2ef"/>
+  <line x1="115" y1="1026" x2="165" y2="1026" stroke="#53658f" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="180" y="1031" class="small">Internal REST/data flow</text>
+  <line x1="400" y1="1026" x2="450" y2="1026" stroke="#6657d9" stroke-width="3" marker-end="url(#arrowPurple)"/>
+  <text x="465" y="1031" class="small">AI-assisted flow</text>
+  <rect x="690" y="1015" width="24" height="24" rx="7" fill="#ffffff" stroke="#cfd8ee"/>
+  <text x="728" y="1031" class="small">Application or platform component</text>
+  <text x="1465" y="1031" text-anchor="end" class="small">Code Raptor</text>
+</svg>
