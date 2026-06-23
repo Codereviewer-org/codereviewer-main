@@ -35,7 +35,9 @@ variable "service_bus_id" {
 }
 
 variable "vm_id" {
-  type = string
+  type     = string
+  nullable = true
+  default  = null
 }
 
 variable "tags" {

@@ -114,6 +114,7 @@ module "service_bus" {
 }
 
 module "linux_vm" {
+  count  = var.create_jumpbox_vm ? 1 : 0
   source = "./modules/linux-vm"
 
   name                = local.names.vm
@@ -158,12 +159,12 @@ module "monitoring" {
   postgresql_id          = module.postgresql.id
   application_gateway_id = module.application_gateway.id
   service_bus_id         = module.service_bus.id
-  vm_id                  = module.linux_vm.id
+  vm_id                  = var.create_jumpbox_vm ? module.linux_vm[0].id : null
   tags                   = local.tags
 }
 
 locals {
-  diagnostic_targets = {
+  base_diagnostic_targets = {
     aks                 = module.aks.id
     application_gateway = module.application_gateway.id
     acr                 = module.container_registry.id
@@ -171,8 +172,12 @@ locals {
     postgresql          = module.postgresql.id
     service_bus         = module.service_bus.id
     storage             = data.azurerm_storage_account.terraform_state.id
-    vm                  = module.linux_vm.id
   }
+
+  diagnostic_targets = merge(
+    local.base_diagnostic_targets,
+    var.create_jumpbox_vm ? { vm = module.linux_vm[0].id } : {}
+  )
 }
 
 module "diagnostics" {

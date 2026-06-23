@@ -6,13 +6,13 @@ This isolated folder provisions the Azure platform through reusable custom Terra
 
 - One primary user-managed resource group
 - One VNet with exactly five subnets
-- Private AKS with system and workload node pools
+- Private AKS with one system node, one workload node, and one jumpbox VM by default
 - WAF_v2 Application Gateway and AGIC
 - Private PostgreSQL Flexible Server
 - Private Key Vault
 - Premium ACR with Private Link
 - Standard Service Bus with a review-jobs queue
-- Standard_D2s_v5 Ubuntu jumpbox with password-authenticated SSH
+- Standard_B2s_v2 Ubuntu jumpbox with password-authenticated SSH
 - Log Analytics, diagnostics, action group, and infrastructure alerts
 - One hardened storage account and private container for Terraform state
 
@@ -58,30 +58,32 @@ terraform-infrastructure/
 
 AKS uses service CIDR 10.0.0.0/16 and overlay pod CIDR 10.244.0.0/16, which do not overlap the VNet. The Application Gateway subnet is `/24` and delegated to `Microsoft.Network/applicationGateways`, which is required for the selected Azure CNI Overlay plus AGIC design.
 
-## Capacity for 20 pods
+## Capacity profile
 
 | Pool | SKU | Minimum | Maximum | Purpose |
 |---|---|---:|---:|---|
-| system | Standard_D2s_v5 | 1 | 3 | AKS add-ons and application overflow |
-| workload | Standard_D4s_v5 | 2 | 4 | Application pods and AGIC |
-| jumpbox | Standard_D2s_v5 | 1 | 1 | Private-cluster administration VM |
+| system | Standard_B2s_v2 | 1 | 1 | AKS add-ons and application overflow |
+| workload | Standard_B2s_v2 | 1 | 1 | Demo application pods |
+| jumpbox | Standard_B2s_v2 | 1 | 1 | Private-cluster administration VM |
 
-Each AKS node allows 50 pods. AKS starts with 10 vCPUs and 40 GiB memory: one D2s_v5 system node plus two D4s_v5 workload nodes. The workload pool alone provides 8 vCPUs and 32 GiB for the Helm workloads, leaving substantial scheduling and rolling-update headroom for approximately 20 low-request pods. The jumpbox adds another 2 vCPUs, so the initial platform needs 12 regional vCPUs before PostgreSQL and Application Gateway service capacity.
+The default profile is reduced for a subscription with no DSv5 quota. AKS and the jumpbox use B-series by default: one B2s system node, one B2s workload node, and one B2s jumpbox. This needs 6 free regional vCPUs and 6 BS-family vCPUs.
+
+This profile is for demo/dev. It is not enough for a comfortable 20-pod production deployment with rolling-update headroom. For that, increase quota and raise the workload node size/count again.
 
 This is a planning baseline, not a guarantee of subscription quota or real-time Azure capacity. Run:
 
 ~~~bash
-az vm list-usage --location centralindia --output table
+az vm list-usage --location australiaeast --output table
 
 az vm list-skus \
-  --location centralindia \
+  --location australiaeast \
   --resource-type virtualMachines \
-  --size Standard_D4s_v5 \
+  --size Standard_B2s_v2 \
   --all \
   --output table
 ~~~
 
-The currently observed Central India quota is only 4 regional vCPUs, 4 DSv5-family vCPUs, and 4 BS-family vCPUs, so this production sizing cannot deploy until quota is increased. Request at least 24 total regional vCPUs and 24 DSv5-family vCPUs. That covers the configured autoscaler maximum, the jumpbox, and one AKS surge node during upgrades. The default availability zones are `["1", "3"]` because zone 2 was restricted for the checked D-series SKUs in this subscription.
+For the current B-series demo profile, request or free at least 6 total regional vCPUs and 6 BS-family vCPUs. For production sizing, request at least 24 total regional vCPUs and 24 DSv5-family vCPUs, then switch workload_node_vm_size/system_node_vm_size back to DSv5 and increase workload_node_min_count/workload_node_max_count. The default availability_zones value is `[]` so Terraform creates non-zonal resources unless you explicitly set zones after confirming SKU support.
 
 ## State versus tfvars
 
@@ -100,7 +102,7 @@ Do not upload terraform.tfvars. It may contain sensitive inputs. Keep it ignored
 - Terraform 1.8 or later
 - Azure CLI
 - Subscription Owner, or Contributor plus User Access Administrator
-- Available Central India quota
+- Available Australia East quota
 - Network access to the private AKS API for kubectl
 
 ~~~bash
@@ -167,7 +169,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 Set subscription_id, terraform_state_storage_account_name, alert_email, and any region or sizing overrides.
 
-Pass the requested database and VM passwords outside the file:
+Pass the database password outside the file. Pass the VM password only if `create_jumpbox_vm = true`:
 
 ~~~bash
 export TF_VAR_postgresql_administrator_password='Use-A-Strong-Unique-Password'
@@ -196,7 +198,7 @@ terraform output
 
 ## 3. Reach the private AKS API
 
-The stack creates a public-IP Ubuntu jumpbox in the VM subnet. Set admin_source_cidr to your current public IP with /32; 0.0.0.0/0 is rejected.
+By default, the stack creates a public-IP Ubuntu jumpbox. Set admin_source_cidr to your current public IP with /32; 0.0.0.0/0 is rejected.
 
 Connect with:
 
@@ -272,7 +274,7 @@ The review-jobs queue is provisioned, but the application must still be updated 
 
 ## Monitoring
 
-Diagnostic data goes to Log Analytics for AKS, Application Gateway, ACR, Key Vault, PostgreSQL, Service Bus, the jumpbox VM, and state storage.
+Diagnostic data goes to Log Analytics for AKS, Application Gateway, ACR, Key Vault, PostgreSQL, Service Bus, state storage, and the jumpbox VM.
 
 Email alerts cover:
 
@@ -288,7 +290,7 @@ Confirm the Azure Monitor action-group email opt-in after deployment.
 
 ## Cost notes
 
-The primary cost drivers are AKS nodes, WAF_v2 Application Gateway, Premium ACR, PostgreSQL, the jumpbox VM, and Log Analytics ingestion. Service Bus uses the lower-cost Standard tier. For development, stop the jumpbox when unused and reduce node minimums and database sizing.
+The primary cost drivers are AKS nodes, WAF_v2 Application Gateway, Premium ACR, PostgreSQL, and Log Analytics ingestion. Service Bus uses the lower-cost Standard tier. Stop the jumpbox when unused.
 
 ## Destroy
 

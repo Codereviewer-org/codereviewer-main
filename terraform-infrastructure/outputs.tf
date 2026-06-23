@@ -59,15 +59,15 @@ output "service_bus_endpoint" {
 }
 
 output "vm_name" {
-  value = module.linux_vm.name
+  value = try(module.linux_vm[0].name, null)
 }
 
 output "vm_public_ip_address" {
-  value = module.linux_vm.public_ip_address
+  value = try(module.linux_vm[0].public_ip_address, null)
 }
 
 output "vm_private_ip_address" {
-  value = module.linux_vm.private_ip_address
+  value = try(module.linux_vm[0].private_ip_address, null)
 }
 
 output "terraform_state_storage_account" {

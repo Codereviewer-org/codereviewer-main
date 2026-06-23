@@ -29,7 +29,7 @@ resource "azurerm_monitor_activity_log_alert" "resource_health" {
 }
 
 locals {
-  metric_alerts = {
+  base_metric_alerts = {
     aks_node_cpu = {
       scope       = var.aks_id
       namespace   = "Microsoft.ContainerService/managedClusters"
@@ -80,6 +80,9 @@ locals {
       severity    = 2
       description = "Service Bus has dead-lettered messages."
     }
+  }
+
+  vm_metric_alerts = var.vm_id == null ? {} : {
     vm_cpu = {
       scope       = var.vm_id
       namespace   = "Microsoft.Compute/virtualMachines"
@@ -91,6 +94,8 @@ locals {
       description = "Jumpbox VM CPU usage is above 80 percent."
     }
   }
+
+  metric_alerts = merge(local.base_metric_alerts, local.vm_metric_alerts)
 }
 
 resource "azurerm_monitor_metric_alert" "this" {

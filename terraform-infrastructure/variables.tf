@@ -15,9 +15,9 @@ variable "terraform_state_storage_account_name" {
 }
 
 variable "location" {
-  description = "Azure region. Central India matches the current platform."
+  description = "Azure region used for the platform."
   type        = string
-  default     = "centralindia"
+  default     = "australiaeast"
 }
 
 variable "environment" {
@@ -62,12 +62,19 @@ variable "vm_admin_password" {
   description = "Linux jumpbox administrator password. Pass through TF_VAR_vm_admin_password."
   type        = string
   sensitive   = true
+  default     = null
 }
 
 variable "vm_size" {
-  description = "Ubuntu jumpbox VM size. Standard_D2s_v5 is broadly available in Central India when DSv5 quota is approved."
+  description = "Ubuntu jumpbox VM size for the quota-constrained demo profile."
   type        = string
-  default     = "Standard_D2s_v5"
+  default     = "Standard_B2s_v2"
+}
+
+variable "create_jumpbox_vm" {
+  description = "Create a Terraform-managed Ubuntu jumpbox."
+  type        = bool
+  default     = true
 }
 
 variable "postgresql_sku_name" {
@@ -83,29 +90,29 @@ variable "postgresql_high_availability_enabled" {
 variable "system_node_vm_size" {
   description = "AKS system pool VM SKU."
   type        = string
-  default     = "Standard_D2s_v5"
+  default     = "Standard_B2s_v2"
 }
 
 variable "workload_node_vm_size" {
-  description = "AKS application pool VM SKU sized for approximately 20 application pods with rollout headroom."
+  description = "AKS application pool VM SKU. Default is reduced for a quota-constrained demo profile."
   type        = string
-  default     = "Standard_D4s_v5"
+  default     = "Standard_B2s_v2"
 }
 
 variable "workload_node_min_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "workload_node_max_count" {
   type    = number
-  default = 4
+  default = 1
 }
 
 variable "availability_zones" {
-  description = "Zones supported by the selected region and VM SKU. Central India zone 2 is commonly restricted for this subscription, so zones 1 and 3 are safer defaults."
+  description = "Zones supported by the selected region and VM SKU. Use [] to create non-zonal resources and avoid zone-specific SKU restrictions."
   type        = list(string)
-  default     = ["1", "3"]
+  default     = []
 }
 
 variable "acr_public_network_access_enabled" {
